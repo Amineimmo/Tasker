@@ -10,9 +10,17 @@ using namespace std;
 
 
 
+
+
 std::ifstream f("data.json");
 json previous = json::parse(f, nullptr, false);
-std::fstream out("data.json");
+std::fstream out("data.json", std::ios::out | std::ios::in | std::ios::trunc);
+
+void savechanges(json& arr,fstream& ot){
+    ot.clear();
+    ot.seekp(0, std::ios::beg);
+    ot << arr.dump(4);
+}
 
 struct task {
     json data;
@@ -28,9 +36,7 @@ struct task {
         data["description"] = description;
         data["completed"] = completed;
         previous.push_back(data);
-        out.clear();
-        out.seekp(0, std::ios::beg);
-        out << previous.dump(4);
+        savechanges(previous,out);
     }
     void setComp(bool statue){
         completed = statue;
@@ -128,7 +134,9 @@ int UID_giver(){
     int n = 0;
     if(f.is_open()){
         for(auto& d : previous){
-            n++;
+            if(d["UID"] > n){
+                n = d["UID"];
+            }
         }
         return n+1;
     }
@@ -136,8 +144,9 @@ int UID_giver(){
 }
 string get_des(){
     std::string d;
-    cout <<"Type a description for your new task : ";
-    cin >> d;
+    cout << "Type a description for your new task : ";
+    cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::getline(cin, d);
     return d;
 }
 bool get_sta(){
@@ -146,18 +155,29 @@ bool get_sta(){
     cin >> st;
     if(cin.fail()){
         while(cin.fail()){
+            cin.clear();
             cout << "Please type in a valid boolean (0 not yet or 1 completed) : ";
             cin >>st;
         }
     }
     return st;
 }
+
 bool createTask(){
     string dis = get_des();
     bool stat = get_sta();
     task t1(UID_giver(),dis,stat);
     return true;
 }
+void deleteTask(json& arr,int uid){
+    auto it = std::find_if(arr.begin(), arr.end(),
+        [uid](const json& item) { return item["UID"] == uid; });
+
+    if (it != arr.end())
+        arr.erase(it);
+}
+
+
 
 int main(){
     std::ifstream f("data.json");
@@ -179,6 +199,7 @@ int main(){
     cout << "Welcome to tasker! a task manager that will help you decide less and work more  || choose a number (0-3)" << endl;
     int i ;
     bool ongoing = true;
+    
     while (ongoing)
     {    
         cout << "1-View your tasks " <<endl;
@@ -198,8 +219,7 @@ int main(){
         {
         case 0:
             cout<<"Au revoir!" << endl;
-            out.clear();
-             out.seekp(0, std::ios::beg);
+            savechanges(previous,out);
              out.close();
              f.close();
             return 0;
@@ -273,7 +293,19 @@ int main(){
             cout << "\033[2J\033[1;1H";
             break;
         case 3: 
-            cout <<"Will be available later !";
+            see_alltasks();
+            cout << "Choose a task with the UID : ";
+            int idx;
+             cin >> idx;
+             if(check_id(idx)){
+                   deleteTask(previous,idx);
+                   savechanges(previous,out);
+             }else {
+                    while(!check_id(idx)){
+                          cout << "Invalid UID, please type a valid one : ";
+                           cin >>idx;
+                            }
+                        }           
             cout << "\033[2J\033[1;1H";
             break;
         }
